@@ -1,56 +1,15 @@
 import React, { useState } from "react";
-// import "./App.css";
 import Dashboard from "./components/Dashboard";
 import PostComposer from "./components/PostComposer";
-import Tabs from "@mui/material/Tabs"
-import Tab from "@mui/material/Tab"
+import AppBar from "@mui/material/AppBar";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Toolbar from "@mui/material/Toolbar";
+import Typography from "@mui/material/Typography";
 
-
-const postStatus = {
-  scheduled: {
-    label: "Scheduled",
-    color: "#92400e",
-    backgroundColor: "#fef3c7",
-  },
-  published: {
-    label: "Published",
-    color: "#166534",
-    backgroundColor: "#dcfce7",
-  },
-  failed: {
-    label: "Failed",
-    color: "#991b1b",
-    backgroundColor: "#fee2e2",
-  },
-};
-const tabs = [
-  {
-    name: "Dashboard",
-    component: Dashboard,
-  },
-  {
-    name: "Compose",
-    component: PostComposer,
-  },
-];
-
-const platformConfig = [
-  {
-    platform: "Facebook",
-    maxCharacterCount: 5000,
-  },
-  {
-    platform: "X",
-    maxCharacterCount: 280,
-  },
-  {
-    platform: "Instagram",
-    maxCharacterCount: 2200,
-  },
-  {
-    platform: "TikTok",
-    maxCharacterCount: 2200,
-  },
+const navigationItems = [
+  { name: "Dashboard", component: Dashboard },
+  { name: "Compose", component: PostComposer },
 ];
 
 // Platform = 'facebook' | 'instagram' | 'x' | 'tiktok';
@@ -66,20 +25,40 @@ const platformConfig = [
 // }
 
 function App() {
-  const [activeTab, setActiveTab] = useState(0);
-  const ActiveTab = tabs[activeTab].component;
+  const [activePage, setActivePage] = useState("Dashboard");
+  const ActivePage = navigationItems.find(
+    (item) => item.name === activePage,
+  ).component;
 
   return (
-    <div>
-      <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)}>
-        {tabs.map((tab, idx) => (
-          <Tab key={tab.name} value={idx} label={tab.name} />
-        ))}
-      </Tabs>
-      <div role="tabpanel">
-        <ActiveTab />
-      </div>
-    </div>
+    <>
+      <AppBar position="static">
+        <Toolbar sx={{ gap: 2 }}>
+          <Typography variant="h6" component="div">
+            Schedulezy
+          </Typography>
+          {navigationItems.map((item) => (
+            <Button
+              key={item.name}
+              color="inherit"
+              aria-current={activePage === item.name ? "page" : undefined}
+              onClick={() => setActivePage(item.name)}
+              sx={{
+                borderBottom: 2,
+                borderColor:
+                  activePage === item.name ? "currentColor" : "transparent",
+                borderRadius: 0,
+              }}
+            >
+              {item.name.toLowerCase()}
+            </Button>
+          ))}
+        </Toolbar>
+      </AppBar>
+      <Container component="main" maxWidth="xl" sx={{ py: { xs: 2, sm: 3 } }}>
+        <ActivePage />
+      </Container>
+    </>
   );
 }
 

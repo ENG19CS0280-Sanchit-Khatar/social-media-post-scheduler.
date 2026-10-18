@@ -40,8 +40,8 @@ const FilterBar = ({
   filterConfig,
   selectedStatus,
   setSelectedStatus,
-  selectedPlatform,
-  setSelectedPlatform,
+  selectedPlatformKey,
+  setSelectedPlatformKey,
   searchTerm,
   setSearchTerm,
   selectedDateRange,
@@ -89,8 +89,8 @@ const FilterBar = ({
         id="filter-platform"
         labelId="filter-platform-label"
         label="Select Platform"
-        onChange={(event) => setSelectedPlatform(event.target.value)}
-        value={selectedPlatform}
+        onChange={(event) => setSelectedPlatformKey(event.target.value)}
+        value={selectedPlatformKey}
       >
         {filterConfig.platforms.map((item) => (
           <MenuItem key={item.value} value={item.value}>

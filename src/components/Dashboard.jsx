@@ -1,5 +1,9 @@
-import React, { useEffect, useState } from "react";
-import mockPosts from "../data/mockPosts.json";
+import React, { useEffect, useState, useMemo, useSyncExternalStore } from "react";
+import {
+  getMockPosts,
+  subscribeToMockPosts,
+  updateMockPost,
+} from "../data/mockPostStore";
 import noPreviewImage from "../assets/no-preview.png";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -14,28 +18,30 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  SvgIcon,
   TablePagination,
   Tooltip,
+  Typography,
 } from "@mui/material";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import InstagramIcon from "@mui/icons-material/Instagram";
 import RestartAltOutlinedIcon from "@mui/icons-material/RestartAltOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import XIcon from "@mui/icons-material/X";
 import FilterBar from "./FilterBar";
 
-const PLATFORM_LABELS = {
-  x: "X",
-  facebook: "Facebook",
-  instagram: "Instagram",
-  tiktok: "TikTok",
-};
+const TikTokIcon = (props) => (
+  <SvgIcon {...props}>
+    <path d="M12.53.02c1.31-.02 2.61-.01 3.92-.02.08 1.53.63 3.03 1.73 4.12 1.1 1.11 2.64 1.62 4.13 1.79v4.03c-1.39-.05-2.78-.34-4.03-.95-.54-.25-1.05-.57-1.56-.89-.01 2.77.01 5.54-.02 8.31-.07 1.33-.51 2.65-1.29 3.73-1.26 1.75-3.45 2.89-5.63 2.93-1.34.08-2.69-.29-3.8-1.05-1.84-1.2-3.1-3.34-3.14-5.55-.02-.5-.03-.99.01-1.49.2-2.13 1.5-4.13 3.34-5.23 2.08-1.26 4.73-1.28 6.83-.06.02 1.48-.04 2.95-.04 4.43-.99-.66-2.24-.96-3.4-.7-.86.2-1.64.75-2.07 1.53-.37.65-.31 1.49.02 2.15.32.71 1.04 1.26 1.82 1.36.59.09 1.21-.04 1.71-.37.75-.5 1.07-1.41 1.05-2.28.05-4.2-.01-8.4.03-12.6z" />
+  </SvgIcon>
+);
 
-const PLATFORM_COLORS = {
-  x: { outline: "#000000", background: "#D9D9D9" },
-  facebook: { outline: "#1877F2", background: "#C9DDFB" },
-  instagram: { outline: "#5851db", background: "#D8D5F5" },
-  tiktok: { outline: "#E4405F", background: "#F8CDD6" },
+const PLATFORM_ICONS = {
+  x: { label: "X", Icon: XIcon, color: "#000000" },
+  facebook: { label: "Facebook", Icon: FacebookIcon, color: "#1877F2" },
+  instagram: { label: "Instagram", Icon: InstagramIcon, color: "#E4405F" },
+  tiktok: { label: "TikTok", Icon: TikTokIcon, color: "#111111" },
 };
 
 const STATUS_COLORS = {
@@ -46,7 +52,7 @@ const STATUS_COLORS = {
 
 const TABLE_COLUMNS = [
   { id: "id", label: "Post ID", minWidth: 220 },
-  { id: "content", label: "Post Content", minWidth: 220 },
+  { id: "content", label: "Post Summary & Content", minWidth: 260 },
   { id: "platform", label: "Platform", minWidth: 100 },
   { id: "scheduledTime", label: "Scheduled For", minWidth: 150 },
   { id: "status", label: "Status", minWidth: 120 },
@@ -137,9 +143,29 @@ const formatUtcToLocal = (utcString) => {
 };
 
 const Dashboard = () => {
+  const mockPosts = useSyncExternalStore(subscribeToMockPosts, getMockPosts);
   const [filters, setFilters] = useState(getInitialFilters);
   const [selectedMedia, setSelectedMedia] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
   const [brokenImages, setBrokenImages] = useState(() => new Set());
+  const [debouncedSearch, setDebounced] = useState(filters.search);
+
+  const handleRetry = (postId) => {
+    updateMockPost(postId, { status: "scheduled", errorMessage: undefined });
+
+    setTimeout(() => {
+      const retryFailed = Math.random() < 0.2;
+      updateMockPost(
+        postId,
+        retryFailed
+          ? {
+              status: "failed",
+              errorMessage: "Retry failed: Network timeout or API error.",
+            }
+          : { status: "published", errorMessage: undefined },
+      );
+    }, 1000);
+  };
 
   const {
     search,
@@ -156,29 +182,47 @@ const Dashboard = () => {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebounced(filters.search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
   const todayKey = formatDateKey(new Date());
   const tomorrowObj = new Date();
   tomorrowObj.setDate(tomorrowObj.getDate() + 1);
   const tomorrowKey = formatDateKey(tomorrowObj);
 
-  const filteredPosts = mockPosts.filter((post) => {
-    const matchesSearch =
-      !search.trim() ||
-      post.content.toLowerCase().includes(search.trim().toLowerCase());
-    const matchesStatus = status === "all" || post.status === status;
-    const matchesPlatform =
-      platform === "all" || post.platforms.includes(platform);
+  const filteredPosts = useMemo(() => {
+    return mockPosts.filter((post) => {
+      const matchesSearch =
+        !debouncedSearch.trim() ||
+        `${post.summary} ${Object.values(post.platforms).join(" ")}`
+          .toLowerCase()
+          .includes(debouncedSearch.trim().toLowerCase());
+      const matchesStatus = status === "all" || post.status === status;
+      const matchesPlatform =
+        platform === "all" ||
+        Object.prototype.hasOwnProperty.call(post.platforms, platform);
 
-    const postDateKey = formatDateKey(new Date(post.scheduledAt));
-    const matchesDate =
-      dateRange === "all" ||
-      (dateRange === "today" && postDateKey === todayKey) ||
-      (dateRange === "tomorrow" && postDateKey === tomorrowKey) ||
-      (dateRange === "custom" && (!customDate || postDateKey === customDate));
+      const postDateKey = formatDateKey(new Date(post.scheduledAt));
+      const matchesDate =
+        dateRange === "all" ||
+        (dateRange === "today" && postDateKey === todayKey) ||
+        (dateRange === "tomorrow" && postDateKey === tomorrowKey) ||
+        (dateRange === "custom" && (!customDate || postDateKey === customDate));
 
-    return matchesSearch && matchesStatus && matchesPlatform && matchesDate;
-  });
+      return matchesSearch && matchesStatus && matchesPlatform && matchesDate;
+    });
+  }, [
+    mockPosts,
+    platform,
+    debouncedSearch,
+    status,
+    dateRange,
+    customDate,
+  ]);
 
   const maxPage = Math.max(0, Math.ceil(filteredPosts.length / pageSize) - 1);
   const activePage = Math.min(currentPage, maxPage);
@@ -192,7 +236,7 @@ const Dashboard = () => {
     const params = url.searchParams;
 
     const queryValues = {
-      search,
+      search: debouncedSearch.trim() || "",
       status: status === "all" ? "" : status,
       platform: platform === "all" ? "" : platform,
       groupByDate: dateRange === "all" ? "" : dateRange,
@@ -208,7 +252,15 @@ const Dashboard = () => {
     params.delete("groupBy");
 
     window.history.replaceState(null, "", url);
-  }, [search, status, platform, dateRange, customDate, activePage, pageSize]);
+  }, [
+    debouncedSearch,
+    status,
+    platform,
+    dateRange,
+    customDate,
+    activePage,
+    pageSize,
+  ]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -218,8 +270,8 @@ const Dashboard = () => {
         setSelectedStatus={(val) =>
           setFilters((prev) => ({ ...prev, status: val, page: 0 }))
         }
-        selectedPlatform={platform}
-        setSelectedPlatform={(val) =>
+        selectedPlatformKey={platform}
+        setSelectedPlatformKey={(val) =>
           setFilters((prev) => ({ ...prev, platform: val, page: 0 }))
         }
         searchTerm={search}
@@ -280,7 +332,7 @@ const Dashboard = () => {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "0.5rem",
+                            gap: "1rem",
                           }}
                         >
                           <div
@@ -297,6 +349,7 @@ const Dashboard = () => {
                                 hasValidMedia ? post.mediaUrl : noPreviewImage
                               }
                               alt={hasValidMedia ? "" : "No preview available"}
+                              loading="lazy"
                               width={40}
                               height={40}
                               onError={() => {
@@ -348,70 +401,92 @@ const Dashboard = () => {
                               </IconButton>
                             </Tooltip>
                           </div>
-                          <span>{post.content}</span>
+                          <span>{post.summary}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {post.platforms.map((p, idx) => (
-                          <Chip
-                            key={idx}
-                            label={
-                              PLATFORM_LABELS[p] ??
-                              p.charAt(0).toUpperCase() + p.slice(1)
+                        {Object.keys(post.platforms).map((platformKey) => (
+                          <Tooltip
+                            key={platformKey}
+                            title={
+                              PLATFORM_ICONS[platformKey]?.label ?? platformKey
                             }
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              backgroundColor:
-                                PLATFORM_COLORS[p]?.background ?? "#F2F2F2",
-                              borderColor:
-                                PLATFORM_COLORS[p]?.outline ?? "#757575",
-                              color: "#000",
-                              padding: "0.2rem 0.3rem",
-                              mr: 0.5,
-                            }}
-                          />
+                          >
+                            <span
+                              aria-label={
+                                PLATFORM_ICONS[platformKey]?.label ?? platformKey
+                              }
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                marginRight: 8,
+                              }}
+                            >
+                              {(() => {
+                                const platformIcon =
+                                  PLATFORM_ICONS[platformKey];
+                                if (!platformIcon) return platformKey;
+                                const Icon = platformIcon.Icon;
+                                return (
+                                  <Icon
+                                    fontSize="small"
+                                    sx={{ color: platformIcon.color }}
+                                  />
+                                );
+                              })()}
+                            </span>
+                          </Tooltip>
                         ))}
                       </TableCell>
                       <TableCell>
                         {formatUtcToLocal(post.scheduledAt)}
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={
-                            post.status.charAt(0).toUpperCase() +
-                            post.status.slice(1)
-                          }
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            backgroundColor:
-                              STATUS_COLORS[post.status]?.background ??
-                              "#F2F2F2",
-                            borderColor:
-                              STATUS_COLORS[post.status]?.outline ?? "#757575",
-                            color: "#000",
-                            padding: "0.2rem 0.3rem",
-                          }}
-                        />
+                        <Tooltip
+                          title={post.errorMessage ?? ""}
+                          disableHoverListener={!post.errorMessage}
+                        >
+                          <Chip
+                            label={
+                              post.status.charAt(0).toUpperCase() +
+                              post.status.slice(1)
+                            }
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              backgroundColor:
+                                STATUS_COLORS[post.status]?.background ??
+                                "#F2F2F2",
+                              borderColor:
+                                STATUS_COLORS[post.status]?.outline ??
+                                "#757575",
+                              color: "#000",
+                              padding: "0.2rem 0.3rem",
+                            }}
+                          />
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
-                        <Tooltip title="Edit post">
+                        <Tooltip title="View post">
                           <IconButton
-                            aria-label={`Edit post ${post.id}`}
+                            aria-label={`View post ${post.id}`}
                             size="small"
+                            onClick={() => setSelectedPost(post)}
                           >
-                            <EditOutlinedIcon fontSize="small" />
+                            <VisibilityOutlinedIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete post">
-                          <IconButton
-                            aria-label={`Delete post ${post.id}`}
-                            size="small"
-                          >
-                            <DeleteOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        {post.status === "failed" && (
+                          <Tooltip title="Retry post">
+                            <IconButton
+                              aria-label={`Retry post ${post.id}`}
+                              size="small"
+                              onClick={() => handleRetry(post.id)}
+                            >
+                              <RestartAltOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -490,6 +565,48 @@ const Dashboard = () => {
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(selectedPost)}
+        onClose={() => setSelectedPost(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+          }}
+        >
+          <span>{selectedPost?.summary}</span>
+          <IconButton
+            aria-label="Close post details"
+            onClick={() => setSelectedPost(null)}
+            size="small"
+          >
+            <CloseOutlinedIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedPost &&
+            Object.entries(selectedPost.platforms).map(
+              ([platformKey, content]) => (
+                <div key={platformKey} style={{ marginBottom: "1rem" }}>
+                  <Typography variant="subtitle2" fontWeight={600}>
+                    {PLATFORM_ICONS[platformKey]?.label ?? platformKey}
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {content}
+                  </Typography>
+                </div>
+              ),
+            )}
         </DialogContent>
       </Dialog>
     </div>
