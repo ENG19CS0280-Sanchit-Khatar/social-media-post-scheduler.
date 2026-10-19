@@ -1,75 +1,44 @@
-# React + TypeScript + Vite
+# Schedulezy - A Social Media Post Scheduler made scheduling and posting easy.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A feature-rich, high-performance Social Media Post Scheduler built with **React, Vite, and Material UI**. This application allows users to compose, schedule, filter, and manage posts across multiple social media platforms (Facebook, Instagram, X, and TikTok) from a single centralized dashboard.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Live Demo & Repository
+* **Live Deployment:** [https://social-media-post-scheduler-one.vercel.app/](https://social-media-post-scheduler-one.vercel.app/)
+* **GitHub Repository:** [https://github.com/ENG19CS0280-Sanchit-Khatar/social-media-post-scheduler](https://github.com/ENG19CS0280-Sanchit-Khatar/social-media-post-scheduler)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features Implemented (Assignment Checklist)
 
-## Expanding the ESLint configuration
+1. **Dashboard Queue Grouping**: Displays all 30+ mock posts grouped logically by day (Today, Tomorrow, and subsequent dates), featuring content previews, platform icons, scheduled times, and statuses.
+2. **Advanced Filtering & URL Persistence**: Filter posts by platform and status, or search instantly by content. Filters persist across page refreshes via URL query parameters.
+3. **Post Composer**: Fully functional composer supporting multi-platform selection, custom text content, optional media image URLs, and a date-time picker.
+4. **Live Platform Character Limits**: Real-time character counters adhering to platform limits (X: 280, Instagram: 2,200, TikTok: 2,200, Facebook: 5,000). Compose button is disabled if any selected platform exceeds its limit.
+5. **Timezone & Future Validation**: Validates that scheduled times are strictly in the future, stores dates in UTC, and renders them seamlessly in the user's local time zone.
+6. **Retry Failed Posts**: Allows users to retry failed posts with an immediate optimistic UI update, a simulated 1-second API delay, a 20% random failure rate, and automatic rollback with an error message on failure.
+7. **Robust UI States & Responsiveness**: Gracefully handles loading, empty, and error states.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Key Technical & Architectural Decisions
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+* **Performance Optimizations**: 
+  * Implemented Debounce which updates the `debouncedSearch` state for the search input to ensure minimal performance lag or UI stutter during filtering, 
+  * Memoized filtering logic with `useMemo` to avoid unnecessary recompute of expensive filter operation.
+  * Optimized image rendering in table cells using fixed thumbnail dimensions (`48x48`) and native lazy loading (`loading="lazy"`) to prevent layout shifts.
+* **UI Component Library**: Built with **Material UI (MUI)** to ensure a modern, accessible, and polished dashboard aesthetic across all devices.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
 
-```
+## Steps to Run the Application Locally
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Follow these steps to run the project locally on your machine:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+### 1. Run these bash commands to clone and setup Schedulezy
+```bash
+git clone https://github.com/ENG19CS0280-Sanchit-Khatar/social-media-post-scheduler..git
+cd social-media-post-scheduler
+npm install
+npm run dev
